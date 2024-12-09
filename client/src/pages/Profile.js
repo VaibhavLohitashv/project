@@ -5,8 +5,23 @@ import RecipeCard from '../components/RecipeCard';
 const Profile = () => {
   const { loading, error, data } = useQuery(GET_ME);
 
-  if (loading) return <div>Loading...</div>;
-  if (error) return <div>Error: {error.message}</div>;
+  if (loading) return (
+    <div className="flex justify-center items-center min-h-screen">
+      <div className="text-xl">Loading...</div>
+    </div>
+  );
+
+  if (error) return (
+    <div className="flex justify-center items-center min-h-screen">
+      <div className="text-xl text-red-600">Error: {error.message}</div>
+    </div>
+  );
+
+  if (!data?.me) return (
+    <div className="flex justify-center items-center min-h-screen">
+      <div className="text-xl">No user data found</div>
+    </div>
+  );
 
   const { me } = data;
 
@@ -26,7 +41,7 @@ const Profile = () => {
 
       <div className="mb-8">
         <h2 className="text-xl font-bold mb-4">My Recipes</h2>
-        {me.recipes.length === 0 ? (
+        {!me.recipes?.length ? (
           <p className="text-gray-600">You haven't created any recipes yet.</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -39,7 +54,7 @@ const Profile = () => {
 
       <div>
         <h2 className="text-xl font-bold mb-4">Saved Recipes</h2>
-        {me.savedRecipes.length === 0 ? (
+        {!me.savedRecipes?.length ? (
           <p className="text-gray-600">You haven't saved any recipes yet.</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

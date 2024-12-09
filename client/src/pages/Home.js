@@ -1,15 +1,44 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@apollo/client';
 import { GET_RECIPES } from '../graphql/queries';
+import { RECIPE_ADDED_SUBSCRIPTION } from '../graphql/subscriptions';
 import RecipeCard from '../components/RecipeCard';
+import { useLocation } from 'react-router-dom';
 
 const Home = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [category, setCategory] = useState('');
+  const location = useLocation();
   
-  const { loading, error, data } = useQuery(GET_RECIPES, {
+  const { loading, error, data, subscribeToMore, refetch } = useQuery(GET_RECIPES, {
     variables: { searchTerm, category },
   });
+
+  // Refresh data when component mounts or when returning to home page
+  useEffect(() => {
+    refetch();
+  }, [location, refetch]);
+
+  // Subscription setup
+  useEffect(() => {
+    const unsubscribe = subscribeToMore({
+      document: RECIPE_ADDED_SUBSCRIPTION,
+      updateQuery: (prev, { subscriptionData }) => {
+        if (!subscriptionData.data) return prev;
+        const newRecipe = subscriptionData.data.recipeAdded;
+
+        // Don't add if it doesn't match current filters
+        if (category && newRecipe.category !== category) return prev;
+        if (searchTerm && !newRecipe.title.toLowerCase().includes(searchTerm.toLowerCase())) return prev;
+
+        return {
+          recipes: [newRecipe, ...prev.recipes]
+        };
+      }
+    });
+
+    return () => unsubscribe();
+  }, [subscribeToMore, category, searchTerm]);
 
   const categories = [
     'All',

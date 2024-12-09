@@ -32,6 +32,7 @@ export const GET_RECIPE = gql`
         content
         rating
         user {
+          id
           username
         }
         createdAt
@@ -50,11 +51,21 @@ export const GET_ME = gql`
         id
         title
         category
+        averageRating
+        createdBy {
+          id
+          username
+        }
       }
       savedRecipes {
         id
         title
         category
+        averageRating
+        createdBy {
+          id
+          username
+        }
       }
     }
   }

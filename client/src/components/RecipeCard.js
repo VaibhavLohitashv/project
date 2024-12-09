@@ -2,6 +2,8 @@ import { Link } from 'react-router-dom';
 import { StarIcon } from '@heroicons/react/20/solid';
 
 const RecipeCard = ({ recipe }) => {
+  if (!recipe) return null;
+
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden">
       <div className="p-6">
@@ -13,7 +15,7 @@ const RecipeCard = ({ recipe }) => {
         
         <div className="flex items-center justify-between">
           <span className="text-sm text-gray-500">
-            By {recipe.createdBy.username}
+            By {recipe.createdBy?.username || 'Unknown User'}
           </span>
           
           <div className="flex items-center">

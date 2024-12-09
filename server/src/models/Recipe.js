@@ -32,7 +32,14 @@ const recipeSchema = new mongoose.Schema({
     default: 0
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  toJSON: { getters: true },
+  id: false
+});
+
+// Add virtual for id
+recipeSchema.virtual('id').get(function() {
+  return this._id.toHexString();
 });
 
 // Add text index for search functionality

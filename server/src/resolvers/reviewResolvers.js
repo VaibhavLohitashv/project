@@ -21,16 +21,6 @@ export default {
         throw new UserInputError('Recipe not found');
       }
 
-      // Check if user has already reviewed this recipe
-      const existingReview = await Review.findOne({
-        recipe: recipeId,
-        user: user.id
-      });
-
-      if (existingReview) {
-        throw new UserInputError('You have already reviewed this recipe');
-      }
-      
       const review = new Review({
         content,
         rating,
@@ -62,6 +52,72 @@ export default {
       });
       
       return populatedReview;
+    },
+
+    deleteReview: async (_, { id }, { user }) => {
+      if (!user) {
+        throw new AuthenticationError('You must be logged in to delete a review');
+      }
+
+      const review = await Review.findById(id);
+      if (!review) {
+        throw new UserInputError('Review not found');
+      }
+
+      if (review.user.toString() !== user.id) {
+        throw new AuthenticationError('Not authorized to delete this review');
+      }
+
+      // Remove review from recipe
+      await Recipe.findByIdAndUpdate(review.recipe, {
+        $pull: { reviews: id }
+      });
+
+      // Delete the review
+      await Review.findByIdAndDelete(id);
+
+      // Update recipe average rating
+      const remainingReviews = await Review.find({ recipe: review.recipe });
+      const averageRating = remainingReviews.length > 0
+        ? remainingReviews.reduce((acc, curr) => acc + curr.rating, 0) / remainingReviews.length
+        : 0;
+
+      await Recipe.findByIdAndUpdate(review.recipe, {
+        averageRating: Math.round(averageRating * 10) / 10
+      });
+
+      return true;
+    },
+
+    updateReview: async (_, { id, content, rating }, { user }) => {
+      if (!user) {
+        throw new AuthenticationError('You must be logged in to update a review');
+      }
+
+      const review = await Review.findById(id);
+      if (!review) {
+        throw new UserInputError('Review not found');
+      }
+
+      if (review.user.toString() !== user.id) {
+        throw new AuthenticationError('Not authorized to update this review');
+      }
+
+      const updatedReview = await Review.findByIdAndUpdate(
+        id,
+        { content, rating },
+        { new: true }
+      ).populate('user');
+
+      // Update recipe average rating
+      const reviews = await Review.find({ recipe: review.recipe });
+      const averageRating = reviews.reduce((acc, curr) => acc + curr.rating, 0) / reviews.length;
+
+      await Recipe.findByIdAndUpdate(review.recipe, {
+        averageRating: Math.round(averageRating * 10) / 10
+      });
+
+      return updatedReview;
     },
   },
   

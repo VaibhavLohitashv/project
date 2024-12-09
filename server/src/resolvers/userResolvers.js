@@ -6,10 +6,61 @@ export default {
   Query: {
     me: async (_, __, { user }) => {
       if (!user) throw new AuthenticationError('Not authenticated');
-      return user;
+      
+      try {
+        const populatedUser = await User.findById(user._id)
+          .populate({
+            path: 'recipes',
+            populate: {
+              path: 'createdBy',
+              select: 'username'
+            }
+          })
+          .populate({
+            path: 'savedRecipes',
+            populate: {
+              path: 'createdBy',
+              select: 'username'
+            }
+          });
+
+        if (!populatedUser) {
+          throw new Error('User not found');
+        }
+
+        return populatedUser;
+      } catch (error) {
+        console.error('Error in me query:', error);
+        throw new Error('Error fetching user data');
+      }
     },
     user: async (_, { id }) => {
-      return await User.findById(id);
+      try {
+        const user = await User.findById(id)
+          .populate({
+            path: 'recipes',
+            populate: {
+              path: 'createdBy',
+              select: 'username'
+            }
+          })
+          .populate({
+            path: 'savedRecipes',
+            populate: {
+              path: 'createdBy',
+              select: 'username'
+            }
+          });
+
+        if (!user) {
+          throw new Error('User not found');
+        }
+
+        return user;
+      } catch (error) {
+        console.error('Error in user query:', error);
+        throw new Error('Error fetching user data');
+      }
     },
   },
   

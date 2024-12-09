@@ -45,13 +45,18 @@ const wsServer = new WebSocketServer({
 
 // Use WebSocket server
 useServer(
-  { 
+  {
     schema,
     context: async (ctx) => {
-      // Add subscription context here if needed
-      return { pubsub };
+      // Get the token from connection params
+      const token = ctx.connectionParams?.authToken || '';
+      
+      // Try to retrieve a user with the token
+      const user = await getUser(token);
+      
+      return { user, pubsub };
     },
-  }, 
+  },
   wsServer
 );
 

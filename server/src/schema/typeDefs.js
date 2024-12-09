@@ -86,6 +86,13 @@ const typeDefs = gql`
     
     saveRecipe(recipeId: ID!): User!
     unsaveRecipe(recipeId: ID!): User!
+    deleteReview(id: ID!): Boolean!
+    
+    updateReview(
+      id: ID!
+      content: String!
+      rating: Int!
+    ): Review!
   }
 
   type Subscription {

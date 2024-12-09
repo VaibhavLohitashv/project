@@ -22,7 +22,14 @@ const reviewSchema = new mongoose.Schema({
     required: true
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  toJSON: { getters: true },
+  id: false
+});
+
+// Add virtual for id
+reviewSchema.virtual('id').get(function() {
+  return this._id.toHexString();
 });
 
 export default mongoose.model('Review', reviewSchema); 
