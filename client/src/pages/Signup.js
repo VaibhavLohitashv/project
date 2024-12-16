@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useMutation } from '@apollo/client';
-import { useNavigate } from 'react-router-dom';
 import { SIGNUP } from '../graphql/mutations';
 import { useAuth } from '../context/AuthContext';
 
@@ -29,57 +29,69 @@ const Signup = () => {
   };
 
   return (
-    <div className="max-w-md mx-auto">
-      <h2 className="text-2xl font-bold mb-4">Sign Up</h2>
-      
-      {error && (
-        <div className="bg-red-100 text-red-700 p-3 rounded mb-4">
-          {error}
-        </div>
-      )}
-      
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-gray-700 mb-2">Username</label>
-          <input
-            type="text"
-            className="input-field"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            required
-          />
-        </div>
+    <div className="auth-container">
+      <div className="form-container">
+        <h2 className="heading-primary mb-6">Sign Up</h2>
         
-        <div>
-          <label className="block text-gray-700 mb-2">Email</label>
-          <input
-            type="email"
-            className="input-field"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-        </div>
+        {error && (
+          <div className="error-message mb-6">
+            {error}
+          </div>
+        )}
         
-        <div>
-          <label className="block text-gray-700 mb-2">Password</label>
-          <input
-            type="password"
-            className="input-field"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-        </div>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div>
+            <label className="text-content block mb-2">Username</label>
+            <input
+              type="text"
+              className="input-field"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+              placeholder="Choose a username"
+            />
+          </div>
+          
+          <div>
+            <label className="text-content block mb-2">Email</label>
+            <input
+              type="email"
+              className="input-field"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              placeholder="Enter your email"
+            />
+          </div>
+          
+          <div>
+            <label className="text-content block mb-2">Password</label>
+            <input
+              type="password"
+              className="input-field"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              placeholder="Choose a password"
+            />
+          </div>
+          
+          <button
+            type="submit"
+            className="btn-primary"
+            disabled={loading}
+          >
+            {loading ? 'Signing up...' : 'Sign Up'}
+          </button>
+        </form>
         
-        <button
-          type="submit"
-          className="btn-primary w-full"
-          disabled={loading}
-        >
-          {loading ? 'Signing up...' : 'Sign Up'}
-        </button>
-      </form>
+        <p className="mt-6 text-center text-gray-400">
+          Already have an account?{' '}
+          <Link to="/login" className="text-red-400 hover:text-red-300">
+            Login here
+          </Link>
+        </p>
+      </div>
     </div>
   );
 };

@@ -1,92 +1,104 @@
-import { useState, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useQuery } from '@apollo/client';
 import { GET_RECIPES } from '../graphql/queries';
-import { RECIPE_ADDED_SUBSCRIPTION } from '../graphql/subscriptions';
 import RecipeCard from '../components/RecipeCard';
-import { useLocation } from 'react-router-dom';
+import { RECIPE_CATEGORIES } from '../utils/constants';
+import { debounce } from 'lodash';
 
 const Home = () => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [category, setCategory] = useState('');
-  const location = useLocation();
   
-  const { loading, error, data, subscribeToMore, refetch } = useQuery(GET_RECIPES, {
-    variables: { searchTerm, category },
+  const { loading, error, data } = useQuery(GET_RECIPES, {
+    variables: { searchTerm: debouncedSearchTerm, category },
   });
 
-  // Refresh data when component mounts or when returning to home page
   useEffect(() => {
-    refetch();
-  }, [location, refetch]);
+    const debouncedSearch = debounce((term) => {
+      setDebouncedSearchTerm(term);
+    }, 300);
 
-  // Subscription setup
-  useEffect(() => {
-    const unsubscribe = subscribeToMore({
-      document: RECIPE_ADDED_SUBSCRIPTION,
-      updateQuery: (prev, { subscriptionData }) => {
-        if (!subscriptionData.data) return prev;
-        const newRecipe = subscriptionData.data.recipeAdded;
+    debouncedSearch(searchTerm);
 
-        // Don't add if it doesn't match current filters
-        if (category && newRecipe.category !== category) return prev;
-        if (searchTerm && !newRecipe.title.toLowerCase().includes(searchTerm.toLowerCase())) return prev;
+    return () => {
+      debouncedSearch.cancel();
+    };
+  }, [searchTerm]);
 
-        return {
-          recipes: [newRecipe, ...prev.recipes]
-        };
-      }
-    });
+  const handleSearch = useCallback((e) => {
+    setSearchTerm(e.target.value);
+  }, []);
 
-    return () => unsubscribe();
-  }, [subscribeToMore, category, searchTerm]);
+  const handleCategoryChange = useCallback((e) => {
+    setCategory(e.target.value);
+  }, []);
 
-  const categories = [
-    'All',
-    'Breakfast',
-    'Lunch',
-    'Dinner',
-    'Dessert',
-    'Vegan',
-    'Vegetarian',
-  ];
+  const categories = ['All', ...RECIPE_CATEGORIES];
+
+  const filteredRecipes = data?.recipes?.filter(recipe => {
+    if (!searchTerm) return true;
+    
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      (recipe.title?.toLowerCase().includes(searchLower)) ||
+      (recipe.category?.toLowerCase().includes(searchLower)) ||
+      (Array.isArray(recipe.ingredients) && recipe.ingredients.some(ing => 
+        ing?.toLowerCase().includes(searchLower)
+      )) ||
+      (recipe.instructions?.toLowerCase().includes(searchLower))
+    );
+  }) || [];
 
   return (
-    <div>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-4">
-          Discover Recipes
-        </h1>
-        
-        <div className="flex space-x-4">
-          <input
-            type="text"
-            placeholder="Search recipes..."
-            className="input-field"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+    <div className="page-layout">
+      <div className="content-section">
+        <div className="container-center">
+          <h1 className="heading-primary mb-8">
+            Discover Recipes
+          </h1>
           
-          <select
-            className="input-field"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-          >
-            {categories.map((cat) => (
-              <option key={cat} value={cat === 'All' ? '' : cat}>
-                {cat}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+          <div className="flex justify-center space-x-4 mb-8">
+            <input
+              type="text"
+              placeholder="Search recipes by title, ingredients, or instructions..."
+              className="input-field max-w-sm"
+              value={searchTerm}
+              onChange={handleSearch}
+            />
+            
+            <select
+              className="select-field max-w-xs"
+              value={category}
+              onChange={handleCategoryChange}
+            >
+              {categories.map((cat) => (
+                <option key={cat} value={cat === 'All' ? '' : cat}>
+                  {cat}
+                </option>
+              ))}
+            </select>
+          </div>
 
-      {loading && <div>Loading...</div>}
-      {error && <div>Error: {error.message}</div>}
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {data?.recipes.map((recipe) => (
-          <RecipeCard key={recipe.id} recipe={recipe} />
-        ))}
+          {loading && <div className="loading-spinner" />}
+          {error && <div className="error-message">{error.message}</div>}
+          
+          {!loading && !error && (
+            <>
+              {filteredRecipes.length === 0 ? (
+                <p className="text-center text-gray-400">
+                  No recipes found. Try adjusting your search.
+                </p>
+              ) : (
+                <div className="card-grid">
+                  {filteredRecipes.map((recipe) => (
+                    <RecipeCard key={recipe.id} recipe={recipe} />
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -48,6 +48,7 @@ export const CREATE_REVIEW = gql`
       content
       rating
       user {
+        id
         username
       }
       createdAt
@@ -62,25 +63,17 @@ export const DELETE_RECIPE = gql`
 `;
 
 export const UPDATE_RECIPE = gql`
-  mutation UpdateRecipe(
-    $id: ID!
-    $title: String
-    $ingredients: [String]
-    $instructions: String
-    $category: String
-  ) {
-    updateRecipe(
-      id: $id
-      title: $title
-      ingredients: $ingredients
-      instructions: $instructions
-      category: $category
-    ) {
+  mutation UpdateRecipe($id: ID!, $title: String!, $ingredients: [String!]!, $instructions: String!, $category: String!) {
+    updateRecipe(id: $id, title: $title, ingredients: $ingredients, instructions: $instructions, category: $category) {
       id
       title
       ingredients
       instructions
       category
+      createdBy {
+        id
+        username
+      }
     }
   }
 `;
@@ -97,6 +90,21 @@ export const UPDATE_REVIEW = gql`
       id
       content
       rating
+    }
+  }
+`;
+
+export const ADD_REVIEW = gql`
+  mutation AddReview($recipeId: ID!, $content: String!, $rating: Int!) {
+    addReview(recipeId: $recipeId, content: $content, rating: $rating) {
+      id
+      content
+      rating
+      user {
+        id
+        username
+      }
+      createdAt
     }
   }
 `; 

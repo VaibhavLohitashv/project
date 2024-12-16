@@ -1,13 +1,14 @@
 import { gql } from '@apollo/client';
 
 export const GET_RECIPES = gql`
-  query GetRecipes($category: String, $searchTerm: String, $skip: Int, $limit: Int) {
-    recipes(category: $category, searchTerm: $searchTerm, skip: $skip, limit: $limit) {
+  query GetRecipes($category: String, $searchTerm: String) {
+    recipes(category: $category, searchTerm: $searchTerm) {
       id
       title
       category
       averageRating
       createdBy {
+        id
         username
       }
     }
@@ -48,16 +49,6 @@ export const GET_ME = gql`
       username
       email
       recipes {
-        id
-        title
-        category
-        averageRating
-        createdBy {
-          id
-          username
-        }
-      }
-      savedRecipes {
         id
         title
         category

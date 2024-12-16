@@ -27,12 +27,8 @@ const schema = makeExecutableSchema({ typeDefs, resolvers });
 const server = new ApolloServer({
   schema,
   context: async ({ req }) => {
-    // Get the user token from the headers
     const token = req?.headers?.authorization || '';
-    
-    // Try to retrieve a user with the token
     const user = await getUser(token);
-    
     return { user, pubsub };
   },
 });
@@ -48,12 +44,8 @@ useServer(
   {
     schema,
     context: async (ctx) => {
-      // Get the token from connection params
       const token = ctx.connectionParams?.authToken || '';
-      
-      // Try to retrieve a user with the token
       const user = await getUser(token);
-      
       return { user, pubsub };
     },
   },
@@ -71,10 +63,10 @@ mongoose
   .then(() => {
     httpServer.listen(PORT, () => {
       console.log(
-        `🚀 Server ready at http://localhost:${PORT}${server.graphqlPath}`
+        `Server ready at http://localhost:${PORT}${server.graphqlPath}`
       );
       console.log(
-        `🚀 Subscriptions ready at ws://localhost:${PORT}${server.graphqlPath}`
+        `Subscriptions ready at ws://localhost:${PORT}${server.graphqlPath}`
       );
     });
   })

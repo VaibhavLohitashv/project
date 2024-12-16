@@ -1,62 +1,62 @@
-import { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_RECIPE } from '../graphql/queries';
-import { CREATE_REVIEW, DELETE_RECIPE, UPDATE_RECIPE, DELETE_REVIEW, UPDATE_REVIEW } from '../graphql/mutations';
-import { StarIcon, PencilIcon, TrashIcon } from '@heroicons/react/20/solid';
+import { CREATE_REVIEW, UPDATE_RECIPE, DELETE_RECIPE, DELETE_REVIEW } from '../graphql/mutations';
 import { useAuth } from '../context/AuthContext';
-import { REVIEW_ADDED_SUBSCRIPTION } from '../graphql/subscriptions';
+import { RECIPE_CATEGORIES } from '../utils/constants';
+
+const StarIcon = () => (
+  <svg 
+    xmlns="http://www.w3.org/2000/svg" 
+    className="h-5 w-5 inline-block" 
+    viewBox="0 0 20 20" 
+    fill="currentColor"
+  >
+    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+  </svg>
+);
+
+// Add a helper function for date formatting
+const formatDate = (dateString) => {
+  try {
+    const date = new Date(parseInt(dateString));
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  } catch (error) {
+    return 'Date unavailable';
+  }
+};
 
 const RecipeDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [isEditing, setIsEditing] = useState(false);
   const [reviewContent, setReviewContent] = useState('');
   const [rating, setRating] = useState(5);
-  const [error, setError] = useState('');
-  const [editingReview, setEditingReview] = useState(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedRecipe, setEditedRecipe] = useState(null);
+  
+  // Form state for editing
+  const [editForm, setEditForm] = useState({
+    title: '',
+    ingredients: [],
+    instructions: '',
+    category: ''
+  });
 
-  const { loading, error: queryError, data, refetch, subscribeToMore } = useQuery(GET_RECIPE, {
+  const { loading, error, data, refetch } = useQuery(GET_RECIPE, {
     variables: { id },
   });
 
-  useEffect(() => {
-    const unsubscribe = subscribeToMore({
-      document: REVIEW_ADDED_SUBSCRIPTION,
-      variables: { recipeId: id },
-      updateQuery: (prev, { subscriptionData }) => {
-        if (!subscriptionData.data) return prev;
-        const newReview = subscriptionData.data.reviewAdded;
-
-        return {
-          recipe: {
-            ...prev.recipe,
-            reviews: [...prev.recipe.reviews, newReview]
-          }
-        };
-      }
-    });
-
-    return () => unsubscribe();
-  }, [subscribeToMore, id]);
-
-  const [createReview, { loading: createReviewLoading }] = useMutation(CREATE_REVIEW, {
+  const [createReview] = useMutation(CREATE_REVIEW, {
     onCompleted: () => {
       setReviewContent('');
       setRating(5);
       refetch();
-    },
-    onError: (error) => {
-      setError(error.message);
-    },
-  });
-
-  const [deleteRecipe] = useMutation(DELETE_RECIPE, {
-    onCompleted: () => {
-      navigate('/');
-    },
+    }
   });
 
   const [updateRecipe] = useMutation(UPDATE_RECIPE, {
@@ -64,404 +64,362 @@ const RecipeDetail = () => {
       setIsEditing(false);
       refetch();
     },
+    onError: (error) => {
+      console.error('Update Recipe Error:', error);
+      alert('Failed to update recipe');
+    }
+  });
+
+  const [deleteRecipe] = useMutation(DELETE_RECIPE, {
+    onCompleted: () => {
+      navigate('/');
+    },
+    onError: (error) => {
+      console.error('Delete Recipe Error:', error);
+      alert('Failed to delete recipe: ' + error.message);
+    },
+    update(cache) {
+      // Remove the recipe from Apollo cache
+      cache.evict({ id: `Recipe:${id}` });
+      cache.gc();
+    }
   });
 
   const [deleteReview] = useMutation(DELETE_REVIEW, {
     onCompleted: () => {
       refetch();
     },
-  });
-
-  const [updateReview, { loading: updateReviewLoading }] = useMutation(UPDATE_REVIEW, {
-    onCompleted: () => {
-      setEditingReview(null);
-      refetch();
-    },
     onError: (error) => {
-      setError(error.message);
-    },
+      console.error('Delete Review Error:', error);
+      alert('Failed to delete review');
+    }
   });
 
-  const handleSubmitReview = async (e) => {
-    e.preventDefault();
-    try {
-      await createReview({
-        variables: {
-          recipeId: id,
-          content: reviewContent,
-          rating: parseInt(rating),
-        },
-      });
-    } catch (err) {
-      // Error handled by onError above
-    }
-  };
-
-  const handleDeleteRecipe = async () => {
+  const handleDelete = async () => {
     if (window.confirm('Are you sure you want to delete this recipe?')) {
       try {
-        await deleteRecipe({ variables: { id } });
-      } catch (err) {
-        setError(err.message);
+        await deleteRecipe({
+          variables: { id }
+        });
+      } catch (error) {
+        // Error is handled in onError callback
+        console.error('Error deleting recipe:', error);
       }
-    }
-  };
-
-  const handleUpdateRecipe = async (e) => {
-    e.preventDefault();
-    try {
-      await updateRecipe({
-        variables: {
-          id,
-          ...editedRecipe,
-        },
-      });
-    } catch (err) {
-      setError(err.message);
     }
   };
 
   const handleDeleteReview = async (reviewId) => {
     if (window.confirm('Are you sure you want to delete this review?')) {
       try {
-        await deleteReview({ variables: { id: reviewId } });
-      } catch (err) {
-        setError(err.message);
+        await deleteReview({
+          variables: { id: reviewId }
+        });
+      } catch (error) {
+        // Error handled in onError callback
       }
     }
   };
 
-  const handleUpdateReview = async (e) => {
+  if (loading) return (
+    <div className="flex justify-center items-center min-h-[calc(100vh-4rem)]">
+      <div className="loading-spinner" />
+    </div>
+  );
+
+  if (error) return (
+    <div className="flex justify-center items-center min-h-[calc(100vh-4rem)]">
+      <div className="error-message">{error.message}</div>
+    </div>
+  );
+
+  const { recipe } = data;
+  const isOwner = user?.id === recipe.createdBy?.id;
+
+  const handleReviewSubmit = (e) => {
+    e.preventDefault();
+    createReview({
+      variables: {
+        recipeId: id,
+        content: reviewContent,
+        rating: parseInt(rating)
+      }
+    });
+  };
+
+  const handleEditSubmit = async (e) => {
     e.preventDefault();
     try {
-      await updateReview({
+      await updateRecipe({
         variables: {
-          id: editingReview.id,
-          content: editingReview.content,
-          rating: parseInt(editingReview.rating),
-        },
+          id,
+          ...editForm
+        }
       });
-    } catch (err) {
-      // Error handled by onError above
+    } catch (error) {
+      // Error handled in onError callback
     }
   };
 
-  if (loading) return <div>Loading...</div>;
-  if (queryError) return <div>Error: {queryError.message}</div>;
-
-  const recipe = data.recipe;
-  const isOwner = user && recipe.createdBy.id === user.id;
+  const startEditing = () => {
+    setEditForm({
+      title: recipe.title,
+      ingredients: recipe.ingredients,
+      instructions: recipe.instructions,
+      category: recipe.category
+    });
+    setIsEditing(true);
+  };
 
   return (
-    <div className="max-w-4xl mx-auto">
-      {isEditing ? (
-        // Recipe Edit Form
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-2xl font-bold mb-4">Edit Recipe</h2>
-          <form onSubmit={handleUpdateRecipe} className="space-y-6">
-            {error && (
-              <div className="bg-red-100 text-red-700 p-3 rounded mb-4">
-                {error}
-              </div>
-            )}
-            
-            <div>
-              <label className="block text-gray-700 mb-2">Title</label>
-              <input
-                type="text"
-                className="input-field"
-                value={editedRecipe.title}
-                onChange={(e) =>
-                  setEditedRecipe({ ...editedRecipe, title: e.target.value })
-                }
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-gray-700 mb-2">Ingredients</label>
-              {editedRecipe.ingredients.map((ingredient, index) => (
-                <div key={index} className="mb-2 flex gap-2">
+    <div className="page-layout">
+      <div className="recipe-details-container">
+        {/* Header Section - More compact */}
+        <div className="recipe-details-header">
+          <div className="flex justify-between items-start mb-2">
+            {isEditing ? (
+              <form onSubmit={handleEditSubmit} className="w-full space-y-4">
+                <div>
+                  <label className="text-gray-300 block mb-1">Title</label>
                   <input
                     type="text"
                     className="input-field"
-                    value={ingredient}
-                    onChange={(e) => {
-                      const newIngredients = [...editedRecipe.ingredients];
-                      newIngredients[index] = e.target.value;
-                      setEditedRecipe({
-                        ...editedRecipe,
-                        ingredients: newIngredients,
-                      });
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const newIngredients = editedRecipe.ingredients.filter(
-                        (_, i) => i !== index
-                      );
-                      setEditedRecipe({
-                        ...editedRecipe,
-                        ingredients: newIngredients,
-                      });
-                    }}
-                    className="text-red-600 hover:text-red-700"
-                  >
-                    <TrashIcon className="h-5 w-5" />
-                  </button>
-                </div>
-              ))}
-              <button
-                type="button"
-                onClick={() =>
-                  setEditedRecipe({
-                    ...editedRecipe,
-                    ingredients: [...editedRecipe.ingredients, ''],
-                  })
-                }
-                className="text-blue-600 hover:text-blue-700"
-              >
-                + Add Ingredient
-              </button>
-            </div>
-
-            <div>
-              <label className="block text-gray-700 mb-2">Instructions</label>
-              <textarea
-                className="input-field"
-                rows="4"
-                value={editedRecipe.instructions}
-                onChange={(e) =>
-                  setEditedRecipe({
-                    ...editedRecipe,
-                    instructions: e.target.value,
-                  })
-                }
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-gray-700 mb-2">Category</label>
-              <select
-                className="input-field"
-                value={editedRecipe.category}
-                onChange={(e) =>
-                  setEditedRecipe({
-                    ...editedRecipe,
-                    category: e.target.value,
-                  })
-                }
-                required
-              >
-                {[
-                  'Breakfast',
-                  'Lunch',
-                  'Dinner',
-                  'Dessert',
-                  'Vegan',
-                  'Vegetarian',
-                ].map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex justify-end space-x-2">
-              <button
-                type="button"
-                onClick={() => setIsEditing(false)}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
-              >
-                Cancel
-              </button>
-              <button type="submit" className="btn-primary">
-                Save Changes
-              </button>
-            </div>
-          </form>
-        </div>
-      ) : (
-        // Recipe Display
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <div className="flex justify-between items-start">
-            <h1 className="text-3xl font-bold mb-4">{recipe.title}</h1>
-            {isOwner && (
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => {
-                    setIsEditing(true);
-                    setEditedRecipe(recipe);
-                  }}
-                  className="text-blue-600 hover:text-blue-700"
-                >
-                  <PencilIcon className="h-5 w-5" />
-                </button>
-                <button
-                  onClick={handleDeleteRecipe}
-                  className="text-red-600 hover:text-red-700"
-                >
-                  <TrashIcon className="h-5 w-5" />
-                </button>
-              </div>
-            )}
-          </div>
-
-          <div className="flex justify-between items-center mb-4">
-            <span className="text-gray-600">By {recipe.createdBy.username}</span>
-            <div className="flex items-center">
-              <StarIcon className="h-5 w-5 text-yellow-400" />
-              <span className="ml-1">
-                {recipe.averageRating?.toFixed(1) || 'No ratings'}
-              </span>
-            </div>
-          </div>
-
-          <div className="mb-6">
-            <h2 className="text-xl font-semibold mb-2">Ingredients</h2>
-            <ul className="list-disc list-inside space-y-1">
-              {recipe.ingredients.map((ingredient, index) => (
-                <li key={index} className="text-gray-700">{ingredient}</li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="mb-6">
-            <h2 className="text-xl font-semibold mb-2">Instructions</h2>
-            <p className="text-gray-700 whitespace-pre-line">{recipe.instructions}</p>
-          </div>
-        </div>
-      )}
-
-      {/* Reviews Section */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-2xl font-bold mb-6">Reviews</h2>
-
-        {/* Add Review Form */}
-        {user && (
-          <form onSubmit={handleSubmitReview} className="mb-8">
-            {error && (
-              <div className="bg-red-100 text-red-700 p-3 rounded mb-4">
-                {error}
-              </div>
-            )}
-            <div className="mb-4">
-              <label className="block text-gray-700 mb-2">Your Review</label>
-              <textarea
-                className="input-field"
-                rows="3"
-                value={reviewContent}
-                onChange={(e) => setReviewContent(e.target.value)}
-                required
-              />
-            </div>
-            <div className="mb-4">
-              <label className="block text-gray-700 mb-2">Rating</label>
-              <select
-                className="input-field"
-                value={rating}
-                onChange={(e) => setRating(e.target.value)}
-              >
-                {[5, 4, 3, 2, 1].map((num) => (
-                  <option key={num} value={num}>
-                    {num} {num === 1 ? 'Star' : 'Stars'}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <button
-              type="submit"
-              className="btn-primary"
-              disabled={createReviewLoading}
-            >
-              {createReviewLoading ? 'Submitting...' : 'Submit Review'}
-            </button>
-          </form>
-        )}
-
-        {/* Reviews List */}
-        <div className="space-y-6">
-          {recipe.reviews?.map((review) => (
-            <div key={review.id} className="border-b pb-4">
-              {editingReview?.id === review.id ? (
-                <form onSubmit={handleUpdateReview} className="space-y-4">
-                  <textarea
-                    value={editingReview.content}
-                    onChange={(e) =>
-                      setEditingReview({ ...editingReview, content: e.target.value })
-                    }
-                    className="input-field"
-                    rows="3"
+                    value={editForm.title}
+                    onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
                     required
                   />
+                </div>
+
+                <div>
+                  <label className="text-gray-300 block mb-1">Category</label>
                   <select
-                    value={editingReview.rating}
-                    onChange={(e) =>
-                      setEditingReview({ ...editingReview, rating: e.target.value })
-                    }
+                    className="select-field"
+                    value={editForm.category}
+                    onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                    required
+                  >
+                    {RECIPE_CATEGORIES.map((cat) => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-gray-300 block mb-1">Ingredients</label>
+                  {editForm.ingredients.map((ingredient, index) => (
+                    <div key={index} className="flex mb-2">
+                      <input
+                        type="text"
+                        className="input-field"
+                        value={ingredient}
+                        onChange={(e) => {
+                          const newIngredients = [...editForm.ingredients];
+                          newIngredients[index] = e.target.value;
+                          setEditForm({ ...editForm, ingredients: newIngredients });
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newIngredients = editForm.ingredients.filter((_, i) => i !== index);
+                          setEditForm({ ...editForm, ingredients: newIngredients });
+                        }}
+                        className="ml-2 text-red-400"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setEditForm({
+                      ...editForm,
+                      ingredients: [...editForm.ingredients, '']
+                    })}
+                    className="text-red-400"
+                  >
+                    Add Ingredient
+                  </button>
+                </div>
+
+                <div>
+                  <label className="text-gray-300 block mb-1">Instructions</label>
+                  <textarea
                     className="input-field"
+                    value={editForm.instructions}
+                    onChange={(e) => setEditForm({ ...editForm, instructions: e.target.value })}
+                    rows="4"
+                    required
+                  />
+                </div>
+
+                <div className="flex space-x-4">
+                  <button type="submit" className="btn-primary">
+                    Save Changes
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditing(false)}
+                    className="btn-primary bg-gray-600 hover:bg-gray-700"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <>
+                <h1 className="recipe-details-title">{recipe.title}</h1>
+                {isOwner && (
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={startEditing}
+                      className="text-blue-400 hover:text-blue-300 transition-colors"
+                      title="Edit Recipe"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={handleDelete}
+                      className="text-red-500 hover:text-red-400 transition-colors"
+                      title="Delete Recipe"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+          <div className="recipe-details-meta">
+            <span className="text-sm">By {recipe.createdBy?.username || 'Unknown'}</span>
+            <div className="recipe-rating">
+              {recipe.averageRating ? (
+                <div className="text-yellow-500 flex items-center text-sm">
+                  <span className="mr-1">{recipe.averageRating.toFixed(1)}</span>
+                  <StarIcon />
+                </div>
+              ) : (
+                <span className="text-sm">No ratings yet</span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Ingredients Section - More compact */}
+        <div className="recipe-details-section">
+          <h2 className="recipe-details-subtitle">Ingredients</h2>
+          <ul className="recipe-ingredients-list text-sm">
+            {recipe.ingredients.map((ingredient, index) => (
+              <li key={index} className="text-sm">{ingredient}</li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Instructions Section - More compact */}
+        <div className="recipe-details-section">
+          <h2 className="recipe-details-subtitle">Instructions</h2>
+          <div className="recipe-instructions text-sm">
+            {recipe.instructions}
+          </div>
+        </div>
+
+        {/* Reviews Section - More compact */}
+        <div className="recipe-reviews-section">
+          <h2 className="recipe-details-subtitle">Reviews</h2>
+          
+          {/* Add Review Form - More compact */}
+          <div className="mb-4">
+            <form onSubmit={handleReviewSubmit} className="space-y-3">
+              <div>
+                <label className="text-gray-300 block mb-1 text-sm">Write a Review</label>
+                <textarea
+                  className="input-field text-sm"
+                  value={reviewContent}
+                  onChange={(e) => setReviewContent(e.target.value)}
+                  placeholder="Share your thoughts about this recipe..."
+                  rows="2"
+                  required
+                />
+              </div>
+              
+              <div className="flex items-center space-x-3">
+                <div className="w-28">
+                  <label className="text-gray-300 block mb-1 text-sm">Rating</label>
+                  <select
+                    className="select-field text-sm"
+                    value={rating}
+                    onChange={(e) => setRating(Number(e.target.value))}
+                    required
                   >
                     {[5, 4, 3, 2, 1].map((num) => (
                       <option key={num} value={num}>
-                        {num} Stars
+                        {num} {num === 1 ? 'Star' : 'Stars'}
                       </option>
                     ))}
                   </select>
-                  <div className="flex space-x-2">
-                    <button
-                      type="button"
-                      onClick={() => setEditingReview(null)}
-                      className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="btn-primary"
-                      disabled={updateReviewLoading}
-                    >
-                      {updateReviewLoading ? 'Saving...' : 'Save Changes'}
-                    </button>
-                  </div>
-                </form>
-              ) : (
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="font-semibold">{review.user.username}</span>
-                    <div className="flex items-center space-x-4">
-                      <div className="flex items-center">
-                        <StarIcon className="h-5 w-5 text-yellow-400" />
-                        <span className="ml-1">{review.rating}</span>
+                </div>
+                
+                <button
+                  type="submit"
+                  className="btn-primary text-sm h-9 mt-6"
+                >
+                  Add Review
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Reviews List - More compact */}
+          {recipe.reviews?.length ? (
+            <div className="space-y-3">
+              {recipe.reviews.map((review) => (
+                <div key={review.id} className="recipe-review-item">
+                  <div className="review-header">
+                    <span className="review-author text-sm">
+                      {review.user.username}
+                    </span>
+                    <div className="flex items-center space-x-2">
+                      <div className="review-rating text-sm">
+                        <span className="mr-1">{review.rating}</span>
+                        <StarIcon />
                       </div>
-                      {user && review.user.id === user.id && (
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => setEditingReview(review)}
-                            className="text-blue-600 hover:text-blue-700"
+                      {user?.id === review.user.id && (
+                        <button
+                          onClick={() => handleDeleteReview(review.id)}
+                          className="text-red-500 hover:text-red-400 transition-colors"
+                          title="Delete review"
+                        >
+                          <svg 
+                            xmlns="http://www.w3.org/2000/svg" 
+                            className="h-4 w-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
                           >
-                            <PencilIcon className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteReview(review.id)}
-                            className="text-red-600 hover:text-red-700"
-                          >
-                            <TrashIcon className="h-4 w-4" />
-                          </button>
-                        </div>
+                            <path 
+                              strokeLinecap="round" 
+                              strokeLinejoin="round" 
+                              strokeWidth={2} 
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" 
+                            />
+                          </svg>
+                        </button>
                       )}
                     </div>
                   </div>
-                  <p className="text-gray-700">{review.content}</p>
-                  <span className="text-sm text-gray-500">
-                    {new Date(review.createdAt).toLocaleDateString()}
+                  <p className="review-content text-sm">{review.content}</p>
+                  <span className="review-date text-xs">
+                    {formatDate(review.createdAt)}
                   </span>
                 </div>
-              )}
+              ))}
             </div>
-          ))}
+          ) : (
+            <p className="text-gray-400 text-sm">No reviews yet. Be the first to review!</p>
+          )}
         </div>
       </div>
     </div>

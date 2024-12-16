@@ -115,12 +115,19 @@ export default {
         throw new AuthenticationError('Not authorized');
       }
       
-      await Recipe.findByIdAndDelete(id);
+      // Remove recipe from all users who saved it
+      await User.updateMany(
+        { savedRecipes: id },
+        { $pull: { savedRecipes: id } }
+      );
       
-      // Remove recipe from user's recipes
-      await User.findByIdAndUpdate(user.id, {
+      // Remove recipe from creator's recipes
+      await User.findByIdAndUpdate(recipe.createdBy, {
         $pull: { recipes: id },
       });
+      
+      // Delete the recipe and all associated reviews
+      await Recipe.findByIdAndDelete(id);
       
       return true;
     },

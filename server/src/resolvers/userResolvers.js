@@ -6,7 +6,7 @@ export default {
   Query: {
     me: async (_, __, { user }) => {
       if (!user) throw new AuthenticationError('Not authenticated');
-      
+
       try {
         const populatedUser = await User.findById(user._id)
           .populate({
@@ -63,48 +63,48 @@ export default {
       }
     },
   },
-  
+
   Mutation: {
     signup: async (_, { username, email, password }) => {
       // Check if user already exists
-      const existingUser = await User.findOne({ 
-        $or: [{ email }, { username }] 
+      const existingUser = await User.findOne({
+        $or: [{ email }, { username }]
       });
-      
+
       if (existingUser) {
         throw new UserInputError('User already exists');
       }
 
       const hashedPassword = await hashPassword(password);
-      
+
       const user = new User({
         username,
         email,
         password: hashedPassword,
       });
-      
+
       await user.save();
-      
+
       const token = generateToken(user);
-      
+
       return { token, user };
     },
-    
+
     login: async (_, { email, password }) => {
       const user = await User.findOne({ email });
-      
+
       if (!user) {
         throw new UserInputError('Invalid credentials');
       }
-      
+
       const validPassword = await comparePasswords(password, user.password);
-      
+
       if (!validPassword) {
         throw new UserInputError('Invalid credentials');
       }
-      
+
       const token = generateToken(user);
-      
+
       return { token, user };
     },
   },

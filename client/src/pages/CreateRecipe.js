@@ -3,6 +3,7 @@ import { useMutation } from '@apollo/client';
 import { useNavigate } from 'react-router-dom';
 import { CREATE_RECIPE } from '../graphql/mutations';
 import { GET_RECIPES } from '../graphql/queries';
+import { RECIPE_CATEGORIES } from '../utils/constants';
 
 const CreateRecipe = () => {
   const [title, setTitle] = useState('');
@@ -47,18 +48,9 @@ const CreateRecipe = () => {
     });
   };
 
-  const categories = [
-    'Breakfast',
-    'Lunch',
-    'Dinner',
-    'Dessert',
-    'Vegan',
-    'Vegetarian',
-  ];
-
   return (
     <div className="max-w-2xl mx-auto">
-      <h2 className="text-2xl font-bold mb-4">Create Recipe</h2>
+      <h2 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">Create Recipe</h2>
       
       {error && (
         <div className="bg-red-100 text-red-700 p-3 rounded mb-4">
@@ -112,15 +104,15 @@ const CreateRecipe = () => {
         </div>
         
         <div>
-          <label className="block text-gray-700 mb-2">Category</label>
+          <label className="form-label">Category</label>
           <select
-            className="input-field"
+            className="select-field"
             value={category}
             onChange={(e) => setCategory(e.target.value)}
             required
           >
             <option value="">Select a category</option>
-            {categories.map((cat) => (
+            {RECIPE_CATEGORIES.map((cat) => (
               <option key={cat} value={cat}>
                 {cat}
               </option>
