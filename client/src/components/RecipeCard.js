@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useMutation } from '@apollo/client';
 import { DELETE_RECIPE } from '../graphql/mutations';
 import { GET_ME, GET_RECIPES } from '../graphql/queries';
@@ -20,7 +20,6 @@ StarIcon.displayName = 'StarIcon';
 
 const RecipeCard = ({ recipe }) => {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const isOwnRecipe = user?.id === recipe.createdBy?.id;
 
   const [deleteRecipe, { loading: deleteLoading }] = useMutation(DELETE_RECIPE, {
